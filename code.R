@@ -105,6 +105,19 @@ pt$renderPivot()
 # Total MRR
 qhpvt(green, "group", "group", "sum(monthly.plan.rate.usd, na.rm=TRUE)")
 
+# Average activity count for variables
+pt <- PivotTable$new()
+pt$addData(green)
+pt$addRowDataGroups("group")
+pt$defineCalculation(calculationName="AvgLoginCount", caption="Avg Login Count",summariseExpression="mean(login.count, na.rm=TRUE)", format="%.2f")
+pt$defineCalculation(calculationName="AvgEventLogCount", caption="Avg Event Log Count",summariseExpression="mean(event.log.count, na.rm=TRUE)", format="%.2f")
+pt$defineCalculation(calculationName="AvgEmployeeCount", caption="Avg Employee Count",summariseExpression="mean(num.employees, na.rm=TRUE)", format="%.2f")
+pt$defineCalculation(calculationName="AvgSheetCount", caption="Avg Sheet Count",summariseExpression="mean(sheet.count, na.rm=TRUE)", format="%.2f")
+pt$defineCalculation(calculationName="AvgTemplateCount", caption="Avg Template Count",summariseExpression="mean(template.sheets, na.rm=TRUE)", format="%.2f")
+pt$defineCalculation(calculationName="AvgReportCount", caption="Avg Report Count",summariseExpression="mean(report.count, na.rm=TRUE)", format="%.2f")
+pt$defineCalculation(calculationName="AvgSharingCount", caption="Avg Sharing Count",summariseExpression="mean(sharing.count, na.rm=TRUE)", format="%.2f")
+pt$renderPivot()
+
 # Employee Count Buckets
 pt <- PivotTable$new()
 pt$addData(green)
