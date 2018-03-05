@@ -44,6 +44,12 @@ colnames(green) <- c("group", "id", "full.name", "email.address", "created.at", 
                      "last.login", "login.count", "sheet.count", "event.log.count", "template.sheets", "report.count", "card.view.count",
                      "community.member.id", "sharing.count", "lead.status")
 
+# Sometimes variables are introduced with errors, so run a quick check here and replace them if needed
+summary(green$product)
+
+# If everything looks good, skip ahead to the 'Manipulate' section, otherwise code below can be used to replace
+green$product <- replace(green$product, green$product == "free", "Free")
+
 # Manipulate the new complete data frame prior to summarizing ---------------------------------------
 
 # First  we need to append our Calculated fields
