@@ -1,37 +1,30 @@
 
-############################### Project Name  #########################################
+############################### Merging lists, adding values, and pivoting to summarize #########################################
 
-# Description of project
+# Project Owner:
 
-# Project Name: 
+# Project Name:  
 
 # Data source: 
 
 ############################################################################################
 
 # begin by setting the working directory for the files
-setwd("???_Directory_???")
-
+setwd("C:\\Users\\")
 #Load the packages and libraries, or d/l any using install.packages("???")
 
 library(plyr)
 library(tidyverse)
 library(pivottabler)
-# the pivottaabler package vignette is at the URL below for refrence
-# https://cran.r-project.org/web/packages/pivottabler/vignettes/v01-introduction.html
+library(openxlsx)
 
 # This is intended to be used with 2 separate lead lists. Load data first, manipulation is in sections
 
 # Load both data sets. object names are default. Group names are assigned within each manipulation section
-red <- read_csv("???.csv")
-blu <- read_csv("???.csv")
+red <- read_csv("Sales_80_Gets_Trig_Trial_Alerts_ALL_Q2_3.csv")
+blu <- read_csv("Sales_20_Not_Trigger_ALL_Q2_3.csv")
 
-# Now assign the group names to each of the data sets that you loaded
-
-red <- add_column(red, group = "Monthly", .before = 1)
-blu <- add_column(blu, group = "Quarterly", .before = 1)
-
-# Then join the two together into one data set we can work with
+# Then join the two together into one data set we can work with & do some data type manipulation
 
 green <- plyr::rbind.fill(red, blu)
 
@@ -52,7 +45,9 @@ summary(green$product)
 ### Otherwise code below can be used to replace whatever values are needed
 
 #green$product <- replace(green$product, green$product == "free", "Free")
-# Identifying Users that were eligible for specific Triggers --------------
+
+
+### Identifying Users that were eligible for specific Triggers --------------
 
 ### First need to load all of the lists for the triggers
 
@@ -145,8 +140,29 @@ green$sheet.count <- as.numeric(green$sheet.count)
 green$template.sheets <- as.numeric(green$template.sheets)
 green$report.count <- as.numeric(green$report.count)
 green$sharing.count <- as.numeric(green$sharing.count)
-       
-# Manipulate the new complete data frame prior to summarizing ---------------------------------------
+
+
+### Exporting Any data sets with filters ------------------------------------
+
+##### After data is prepared, export to CSV if needed for analysis outside of R
+
+# Can export any of the existing objects, or create new objects to export to CSV
+write_csv(object_name, "name_of_export_file.csv")
+
+trigger_eligible <- green %>% filter(trigger.eligible == 'Got Trigger')
+write_csv(trigger_eligible, "trigger_eligible_data.csv")
+
+hvt_data<- green %>% filter(hvt == 'hvt')
+write_csv(hvt_data, "hvt_data.csv")
+
+id_triggers <- green %>% select(Id, first_sight, ten_webpages, strong_lead, team_trial, five_hun_actions,
+                                first_report, six_sheets, five_hun_employees, hvt, enter_hvt, not_hvt)
+write_csv(id_triggers, "ID_with_triggers.csv")
+
+write_csv(green, "Full sales trigger data.csv")
+        
+
+### Manipulate the new complete data frame prior to summarizing ---------------------------------------
 
 # First  we need to append our Calculated fields
 green <- add_column(green, account_payor = "")
@@ -179,26 +195,9 @@ green$employee_count[is.na(green$employee_count)] <- replace_empty
 green <- add_column(green, dashboard_user = "")
 green$dashboard_user <- ifelse(green$dashboard.count > 0, "Yes", "No")
 
-##### After data is prepared, export to CSV if needed for analysis outside of R-----------------------------
+#### ___________ Pivoting Section ________________ #####
 
-# Can export any of the existing objects, or create new objects to export to CSV
-write_csv(object_name, "name_of_export_file.csv")
-
-trigger_eligible <- green %>% filter(trigger.eligible == 'Got Trigger')
-write_csv(trigger_eligible, "trigger_eligible_data.csv")
-
-hvt_data<- green %>% filter(hvt == 'hvt')
-write_csv(hvt_data, "hvt_data.csv")
-
-id_triggers <- green %>% select(Id, first_sight, ten_webpages, strong_lead, team_trial, five_hun_actions,
-                                first_report, six_sheets, five_hun_employees, hvt, enter_hvt, not_hvt)
-write_csv(id_triggers, "ID_with_triggers.csv")
-
-write_csv(green, "Full sales trigger data.csv")
-
-##### _-_-_ Sections for Pivoting and summarizng the data!!!!! _-_-_ #####
-
-# Pivoting by Group ONLY!!! -------------------------------------------------------------
+# Group: Pivot by Group only -------------------------------------------------------------
 
 # First pivot table pulls product by group and counts the occurrences
 pt <- PivotTable$new()
@@ -237,58 +236,21 @@ pt$defineCalculation(calculationName="AvgReportCount", caption="Avg Report Count
 pt$defineCalculation(calculationName="AvgSharingCount", caption="Avg Sharing Count",summariseExpression="mean(sharing.count, na.rm=TRUE)", format="%.2f")
 pt$renderPivot()
 
-# Count of additional occurrences of activities (has to be done 1 at a time)
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addColumnDataGroups("account_payor", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
+# Count of additional occurrences of activities (loops through values and outputs tables in Console
 
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addColumnDataGroups("shared", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
+actions.vec <- c("account_payor", "shared", "created_sheet","created_template", "created_report", "card_view", "community_member")
 
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addColumnDataGroups("created_sheet", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
+sapply(actions.vec, function(z){
+  pt <- PivotTable$new()
+  pt$addData(green)
+  pt$addRowDataGroups("group")
+  pt$addColumnDataGroups(z, addTotal = FALSE)
+  pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
+  pt$evaluatePivot()
+  pt
+})
 
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addColumnDataGroups("created_template", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
-
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addColumnDataGroups("created_report", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
-
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addColumnDataGroups("card_view", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
-
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addColumnDataGroups("community_member", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
-
-
-# Pivoting by Employee Count!!! -------------------------------------------
+# Group + Employee Count!!! -------------------------------------------
 
 # Employee Count Buckets
 pt <- PivotTable$new()
@@ -345,115 +307,86 @@ pt$defineCalculation(calculationName="AvgSharingCount", caption="Avg Sharing Cou
 pt$renderPivot()
 
 # Count of additional occurrences of activities (has to be done 1 at a time)
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("employee_count", addTotal = FALSE)
-pt$addColumnDataGroups("account_payor", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
 
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("employee_count", addTotal = FALSE)
-pt$addColumnDataGroups("shared", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
+actions.vec <- c("account_payor", "shared", "created_sheet","created_template", "created_report", "card_view", "community_member")
 
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("employee_count", addTotal = FALSE)
-pt$addColumnDataGroups("created_sheet", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
-
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("employee_count", addTotal = FALSE)
-pt$addColumnDataGroups("created_template", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
-
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("employee_count", addTotal = FALSE)
-pt$addColumnDataGroups("created_report", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
-
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("employee_count", addTotal = FALSE)
-pt$addColumnDataGroups("card_view", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
-
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("employee_count", addTotal = FALSE)
-pt$addColumnDataGroups("community_member", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
+sapply(actions.vec, function(z){
+  pt <- PivotTable$new()
+  pt$addData(green)
+  pt$addRowDataGroups("group")
+  pt$addRowDataGroups("employee_count", addTotal = FALSE)
+  pt$addColumnDataGroups(z, addTotal = FALSE)
+  pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
+  pt$evaluatePivot()
+  pt
+})
 
 
+# Group + Filter: Define filter value  ---------------------------------------
 
-# By Group Plus Additional Variable  ---------------------------------------
+### First create your filter variable and values for use in the functions
+filter.variable <- "hvt"
+filter.value <- "hvt"
+actions.vec <- c("account_payor", "shared", "created_sheet","created_template", "created_report", "card_view", "community_member")
 
-# To cycle through variables in the pivot do a find and replace while highlighting this code
+### Group + Filter: Create Functions to be Run ----------------------------------------------
 
-# First pivot table pulls product by group and counts the occurrences
+# Function pivot table: product x group and filter
+product.pivot <- function(x, y)
+{
 pt <- PivotTable$new()
 pt$addData(green)
 pt$addColumnDataGroups("product")
 pt$addRowDataGroups("group")
-pt$addRowDataGroups("hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("hvt")) #specifies a specific value to be returned
-pt$addRowDataGroups("not_hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("not_enter_hvt")) 
+pt$addRowDataGroups(x, addTotal = FALSE, fromData = FALSE, explicitListOfValues = list(y))
 pt$defineCalculation(calculationName = "ProductCount", summariseExpression="n()")
 pt$renderPivot()
+}
 
 # Product & Owner & Payer (This accounts for all of the product table variations)
+payer.role.pivot <- function(x, y)
+{
 pt <- PivotTable$new()
 pt$addData(green)
 pt$addColumnDataGroups("product")
 pt$addColumnDataGroups("account.role", addTotal = FALSE)
 pt$addColumnDataGroups("account_payor", addTotal = FALSE) 
 pt$addRowDataGroups("group")
-pt$addRowDataGroups("hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("hvt"))
-pt$addRowDataGroups("not_hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("not_enter_hvt"))
+pt$addRowDataGroups(x, addTotal = FALSE, fromData = FALSE, explicitListOfValues = list(y))
 pt$defineCalculation(calculationName = "ProductCount", summariseExpression="n()")
 pt$renderPivot()
+}
 
 #Unsubcsribed
+unsub.pivot <- function(x, y)
+{
 pt <- PivotTable$new()
 pt$addData(green)
 pt$addColumnDataGroups("unsubscribed")
 pt$addRowDataGroups("group")
-pt$addRowDataGroups("hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("hvt"))
-pt$addRowDataGroups("not_hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("not_enter_hvt"))
+pt$addRowDataGroups(x, addTotal = FALSE, fromData = FALSE, explicitListOfValues = list(y))
 pt$defineCalculation(calculationName = "ProductCount", summariseExpression="n()")
 pt$renderPivot()
+}
 
 # Total MRR
+mrr.pivot <- function(x, y)
+{
 pt <- PivotTable$new()
 pt$addData(green)
 pt$addRowDataGroups("group")
-pt$addRowDataGroups("hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("hvt"))
-pt$addRowDataGroups("not_hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("not_enter_hvt"))
+pt$addRowDataGroups(x, addTotal = FALSE, fromData = FALSE, explicitListOfValues = list(y))
 pt$defineCalculation(calculationName = "Total.MRR", summariseExpression="sum(monthly.plan.rate.usd)")
 pt$renderPivot()
+}
 
 # Average activity count for variables
+activity.pivot <- function(x, y)
+{
 pt <- PivotTable$new()
 pt$addData(green)
 pt$addRowDataGroups("group")
-pt$addRowDataGroups("hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("hvt"))
-pt$addRowDataGroups("not_hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("not_enter_hvt"))
+pt$addRowDataGroups(x, addTotal = FALSE, fromData = FALSE, explicitListOfValues = list(y))
 pt$defineCalculation(calculationName="AvgLoginCount", caption="Avg Login Count",summariseExpression="mean(login.count, na.rm=TRUE)", format="%.2f")
 pt$defineCalculation(calculationName="AvgEventLogCount", caption="Avg Event Log Count",summariseExpression="mean(event.log.count, na.rm=TRUE)", format="%.2f")
 pt$defineCalculation(calculationName="AvgEmployeeCount", caption="Avg Employee Count",summariseExpression="mean(num.employees, na.rm=TRUE)", format="%.2f")
@@ -462,191 +395,36 @@ pt$defineCalculation(calculationName="AvgTemplateCount", caption="Avg Template C
 pt$defineCalculation(calculationName="AvgReportCount", caption="Avg Report Count",summariseExpression="mean(report.count, na.rm=TRUE)", format="%.2f")
 pt$defineCalculation(calculationName="AvgSharingCount", caption="Avg Sharing Count",summariseExpression="mean(sharing.count, na.rm=TRUE)", format="%.2f")
 pt$renderPivot()
+}
 
 # Count of additional occurrences of activities (has to be done 1 at a time)
+
+activity.occur.pivot <- function(x, y, z)
+{
 pt <- PivotTable$new()
 pt$addData(green)
 pt$addRowDataGroups("group")
-pt$addRowDataGroups("hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("hvt"))
-pt$addRowDataGroups("not_hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("not_enter_hvt"))
-pt$addColumnDataGroups("account_payor", addTotal = FALSE)
+pt$addRowDataGroups(x, addTotal = FALSE, fromData = FALSE, explicitListOfValues = list(y))
+pt$addColumnDataGroups(z, addTotal = FALSE)
 pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
 pt$renderPivot()
+}
 
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("hvt"))
-pt$addRowDataGroups("not_hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("not_enter_hvt"))
-pt$addColumnDataGroups("shared", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
+### GRoup + Filter: Run functions, create pivot tables ##########
+product.pivot(filter.variable, filter.value)
+payer.role.pivot(filter.variable, filter.value)
+unsub.pivot(filter.variable, filter.value)
+mrr.pivot(filter.variable, filter.value)
+activity.pivot(filter.variable, filter.value)
+sapply(actions.vec, function(z){
+  pt <- PivotTable$new()
+  pt$addData(green)
+  pt$addRowDataGroups("group")
+  pt$addRowDataGroups(filter.variable, addTotal = FALSE, fromData = FALSE, explicitListOfValues = list(filter.value))
+  pt$addColumnDataGroups(z, addTotal = FALSE)
+  pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
+  pt$evaluatePivot()
+  pt
+})
 
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("hvt"))
-pt$addRowDataGroups("not_hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("not_enter_hvt"))
-pt$addColumnDataGroups("created_sheet", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
-
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("hvt"))
-pt$addRowDataGroups("not_hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("not_enter_hvt"))
-pt$addColumnDataGroups("created_template", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
-
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("hvt"))
-pt$addRowDataGroups("not_hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("not_enter_hvt"))
-pt$addColumnDataGroups("created_report", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
-
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("hvt"))
-pt$addRowDataGroups("not_hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("not_enter_hvt"))
-pt$addColumnDataGroups("card_view", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
-
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("hvt"))
-pt$addRowDataGroups("not_hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("not_enter_hvt"))
-pt$addColumnDataGroups("community_member", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
-
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("hvt"))
-pt$addRowDataGroups("not_hvt", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("not_enter_hvt"))
-pt$addColumnDataGroups("dashboard_user", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
-
-
-# By Group Plus Additional Variable (again) ---------------------------------------------------
-
-### Need to figure out how to create variable name and filter value and paste them into these functions! ###
-# Other option is to do a find and replace while highlighting this code
-
-
-# First pivot table pulls product by group and counts the occurrences
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addColumnDataGroups("product")
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("trigger.eligible", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("Not Trigger"))
-pt$defineCalculation(calculationName = "ProductCount", summariseExpression="n()")
-pt$renderPivot()
-
-# Product & Owner & Payer (This accounts for all of the product table variations)
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addColumnDataGroups("product")
-pt$addColumnDataGroups("account.role", addTotal = FALSE)
-pt$addColumnDataGroups("account_payor", addTotal = FALSE) 
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("trigger.eligible", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("Not Trigger"))
-pt$defineCalculation(calculationName = "ProductCount", summariseExpression="n()")
-pt$renderPivot()
-
-#Unsubcsribed
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addColumnDataGroups("unsubscribed")
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("trigger.eligible", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("Not Trigger"))
-pt$defineCalculation(calculationName = "ProductCount", summariseExpression="n()")
-pt$renderPivot()
-
-# Total MRR
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("trigger.eligible", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("Not Trigger"))
-pt$defineCalculation(calculationName = "Total.MRR", summariseExpression="sum(monthly.plan.rate.usd)")
-pt$renderPivot()
-
-# Average activity count for variables
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("trigger.eligible", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("Not Trigger"))
-pt$defineCalculation(calculationName="AvgLoginCount", caption="Avg Login Count",summariseExpression="mean(login.count, na.rm=TRUE)", format="%.2f")
-pt$defineCalculation(calculationName="AvgEventLogCount", caption="Avg Event Log Count",summariseExpression="mean(event.log.count, na.rm=TRUE)", format="%.2f")
-pt$defineCalculation(calculationName="AvgEmployeeCount", caption="Avg Employee Count",summariseExpression="mean(num.employees, na.rm=TRUE)", format="%.2f")
-pt$defineCalculation(calculationName="AvgSheetCount", caption="Avg Sheet Count",summariseExpression="mean(sheet.count, na.rm=TRUE)", format="%.2f")
-pt$defineCalculation(calculationName="AvgTemplateCount", caption="Avg Template Count",summariseExpression="mean(template.sheets, na.rm=TRUE)", format="%.2f")
-pt$defineCalculation(calculationName="AvgReportCount", caption="Avg Report Count",summariseExpression="mean(report.count, na.rm=TRUE)", format="%.2f")
-pt$defineCalculation(calculationName="AvgSharingCount", caption="Avg Sharing Count",summariseExpression="mean(sharing.count, na.rm=TRUE)", format="%.2f")
-pt$renderPivot()
-
-# Count of additional occurrences of activities (has to be done 1 at a time)
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("trigger.eligible", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("Not Trigger"))
-pt$addColumnDataGroups("account_payor", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
-
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("trigger.eligible", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("Not Trigger"))
-pt$addColumnDataGroups("shared", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
-
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("trigger.eligible", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("Not Trigger"))
-pt$addColumnDataGroups("created_sheet", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
-
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("trigger.eligible", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("Not Trigger"))
-pt$addColumnDataGroups("created_template", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
-
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("trigger.eligible", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("Not Trigger"))
-pt$addColumnDataGroups("created_report", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
-
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("trigger.eligible", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("Not Trigger"))
-pt$addColumnDataGroups("card_view", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
-
-pt <- PivotTable$new()
-pt$addData(green)
-pt$addRowDataGroups("group")
-pt$addRowDataGroups("trigger.eligible", addTotal = FALSE, fromData = FALSE, explicitListOfValues = list("Not Trigger"))
-pt$addColumnDataGroups("community_member", addTotal = FALSE)
-pt$defineCalculation(calculationName = "Count", summariseExpression="n()")
-pt$renderPivot()
+### END OF CODE ###
