@@ -24,6 +24,14 @@ library(openxlsx)
 red <- read_csv("Sales_80_Gets_Trig_Trial_Alerts_ALL_Q2_3.csv")
 blu <- read_csv("Sales_20_Not_Trigger_ALL_Q2_3.csv")
 
+red[is.na(red)] <- 0
+blu[is.na(blu)] <- 0
+
+# If needed, assign the group names to each of the data sets that you loaded
+
+red <- add_column(red, group = "Eligible", .before = 0)
+blu <- add_column(blu, group = "Ghost", .before = 0)
+
 # Then join the two together into one data set we can work with & do some data type manipulation
 
 green <- plyr::rbind.fill(red, blu)
@@ -31,7 +39,7 @@ green <- plyr::rbind.fill(red, blu)
 # Update column names to make them easier to work with
 
 colnames(green) <- c("group", "Id", "full.name", "email.address", "created.at", "account.role", "person.status",
-                     "lead.status.at.import", "fit.rating", "dashboard.count", "trigger.eligible", "num.employees", "account.health",
+                     "lead.status.at.import", "fit.rating", "job.title", "trigger.eligible", "num.employees", "account.health",
                      "product", "monthly.plan.rate.usd", "payment.start.date", "owner.role.at.import", "sales.owner.job.title",
                      "trial.start.date", "trial.end.date", "test.buckets", "is.ever.well.qualified", "is.strong.lead", "unsubscribed",
                      "last.login", "login.count", "sheet.count", "event.log.count", "template.sheets", "report.count", "card.view.count",
